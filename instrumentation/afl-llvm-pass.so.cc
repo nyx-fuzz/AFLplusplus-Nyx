@@ -438,7 +438,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       fprintf(stderr, "FUNCTION: %s (%zu)\n", F.getName().str().c_str(),
               F.size());
 
-    if (!isInInstrumentList(&F)) { continue; }
+    if (!isInInstrumentList(&F, MNAME)) { continue; }
 
     if (F.size() < function_minimum_size) { continue; }
 
@@ -456,7 +456,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
           PrevCaller = IRB.CreateLoad(
   #if LLVM_VERSION_MAJOR >= 14
-              IRB.getInt32Ty(),
+              PrevCallerTy,
   #endif
               AFLPrevCaller);
           PrevCaller->setMetadata(M.getMDKindID("nosanitize"),
@@ -628,11 +628,21 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       /* Load prev_loc */
 
-      LoadInst *PrevLoc = IRB.CreateLoad(
+      LoadInst *PrevLoc;
+
+      if (ngram_size) {
+        PrevLoc = IRB.CreateLoad(
+#if LLVM_VERSION_MAJOR >= 14
+          PrevLocTy,
+#endif
+          AFLPrevLoc);
+      } else {
+        PrevLoc = IRB.CreateLoad(
 #if LLVM_VERSION_MAJOR >= 14
           IRB.getInt32Ty(),
 #endif
           AFLPrevLoc);
+      }
       PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       Value *PrevLocTrans;
 
