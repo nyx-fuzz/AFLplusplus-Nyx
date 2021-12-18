@@ -35,6 +35,10 @@
   #include <sys/shm.h>
 #endif
 
+#ifdef NYX
+#include "libnyx.h"
+#endif
+
 #ifdef __APPLE__
   #include <sys/qos.h>
 #endif
@@ -120,6 +124,10 @@ static void usage(u8 *argv0, int more_help) {
 #if defined(__linux__)
       "  -Q            - use binary-only instrumentation (QEMU mode)\n"
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
+#ifdef NYX
+      "  -X            - use VM fuzzing (NYX mode)\n"
+      "  -Y            - use VM fuzzing (NYX mode - Multiprocessing)\n"
+#endif
       "  -W            - use qemu-based instrumentation with Wine (Wine "
       "mode)\n"
 #endif
@@ -440,7 +448,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
+#ifdef NYX
+              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOXYo:p:RQs:S:t:T:UV:Wx:Z")) >
+#else
               "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) >
+#endif
          0) {
 
     switch (opt) {
@@ -843,6 +855,30 @@ int main(int argc, char **argv_orig, char **envp) {
         if (afl->use_banner) { FATAL("Multiple -T options not supported"); }
         afl->use_banner = optarg;
         break;
+#ifdef NYX
+      case 'X':                                               /* NYX mode */
+        if (afl->fsrv.nyx_mode) {
+          FATAL("Multiple -X options not supported");
+
+        }
+
+        afl->fsrv.nyx_parent = true;
+        afl->fsrv.nyx_standalone = true;
+        afl->fsrv.nyx_mode = 1;
+        afl->fsrv.nyx_id = 0;
+
+        break;
+
+      case 'Y':                                               /* NYX distributed mode */
+        if (afl->fsrv.nyx_mode) {
+
+          FATAL("Multiple -X options not supported");
+
+        }
+        afl->fsrv.nyx_mode = 1;
+
+        break;
+#endif
 
       case 'A':                                           /* CoreSight mode */
 
@@ -1184,6 +1220,14 @@ int main(int argc, char **argv_orig, char **envp) {
   OKF("NOTE: This is v3.x which changes defaults and behaviours - see "
       "README.md");
 
+#ifdef NYX
+  if (afl->fsrv.nyx_mode){
+    OKF("afl++ Nyx mode is enabled (developed and mainted by Sergej Schumilo)");
+    OKF("Nyx is open source, get it at "
+      "https://github.com/Nyx-Fuzz");
+  }
+#endif
+
   if (afl->sync_id && afl->is_main_node &&
       afl->afl_env.afl_custom_mutator_only) {
 
@@ -1225,6 +1269,34 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("No -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
 
   }
+
+#ifdef NYX
+  if (afl->fsrv.nyx_mode) {
+
+    if (afl->fsrv.nyx_standalone && strncmp(afl->sync_id, "default", strlen("default")) != 0){
+      FATAL("distributed fuzzing is not supported in this Nyx mode (use -Y instead)");
+    }
+
+    if (!afl->fsrv.nyx_standalone){
+      if (afl->is_main_node){
+        if(strncmp("0", afl->sync_id, strlen("0") != 0)){
+          FATAL("afl->sync_id has to be 0 in Nyx mode (-M 0)");
+        }
+        afl->fsrv.nyx_id = 0;
+      }
+
+      if (afl->is_secondary_node){
+        long nyx_id = strtol(afl->sync_id, NULL, 10);
+
+        if (nyx_id == 0 || nyx_id == LONG_MAX){
+          FATAL("afl->sync_id has to be numberic and >= 1 (-S id)");
+        }
+        afl->fsrv.nyx_id = nyx_id;
+      }
+    }
+  }
+
+#endif
 
   if (afl->sync_id) {
 
@@ -1449,8 +1521,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
 
+#ifdef NYX
+  if (!afl->fsrv.nyx_mode){
+#endif
   check_crash_handling();
   check_cpu_governor(afl);
+#ifdef NYX
+  }
+#endif
 
   if (getenv("LD_PRELOAD")) {
 
@@ -1933,7 +2011,11 @@ int main(int argc, char **argv_orig, char **envp) {
     if (!afl->queue_buf[entry]->disabled) { ++valid_seeds; }
 
   if (!afl->pending_not_fuzzed || !valid_seeds) {
-
+#ifdef NYX
+    if(afl->fsrv.nyx_mode){
+      nyx_shutdown(afl->fsrv.nyx_runner);
+    }
+#endif
     FATAL("We need at least one valid input seed that does not crash!");
 
   }

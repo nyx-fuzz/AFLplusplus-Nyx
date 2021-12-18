@@ -27,6 +27,10 @@
 #include <limits.h>
 #include "cmplog.h"
 
+#ifdef NYX
+#include "libnyx.h"
+#endif
+
 #ifdef HAVE_AFFINITY
 
 /* bind process to a specific cpu. Returns 0 on failure. */
@@ -412,6 +416,10 @@ void bind_to_free_cpu(afl_state_t *afl) {
     OKF("Found a free CPU core, try binding to #%u.", i);
 
     if (bind_cpu(afl, i)) {
+
+#ifdef NYX
+      afl->fsrv.nyx_bind_cpu_id = i;
+#endif
 
       /* Success :) */
       break;
@@ -1092,6 +1100,11 @@ void perform_dry_run(afl_state_t *afl) {
         FATAL("Unable to execute target application ('%s')", afl->argv[0]);
 
       case FSRV_RUN_NOINST:
+#ifdef NYX
+        if(afl->fsrv.nyx_mode && afl->fsrv.nyx_runner != NULL){
+          nyx_shutdown(afl->fsrv.nyx_runner);
+        }
+#endif
         FATAL("No instrumentation detected");
 
       case FSRV_RUN_NOBITS:
@@ -2444,6 +2457,9 @@ void fix_up_sync(afl_state_t *afl) {
   if (strlen(afl->sync_id) > 32) { FATAL("Fuzzer ID too long"); }
 
   x = alloc_printf("%s/%s", afl->out_dir, afl->sync_id);
+#ifdef NYX
+  afl->fsrv.out_dir_path = afl->out_dir;
+#endif
 
   afl->sync_dir = afl->out_dir;
   afl->out_dir = x;
@@ -2582,6 +2598,19 @@ void check_binary(afl_state_t *afl, u8 *fname) {
   if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
 
     afl->fsrv.target_path = ck_strdup(fname);
+#ifdef NYX
+    if(afl->fsrv.nyx_mode){
+      /* check if target_path is a nyx sharedir */
+      if (stat(afl->fsrv.target_path, &st) || S_ISDIR(st.st_mode)){
+        char* tmp = alloc_printf("%s/config.ron", afl->fsrv.target_path);
+        if (stat(tmp, &st) || S_ISREG(st.st_mode)){
+          free(tmp);
+          return;
+        }
+      }
+      FATAL("Directory '%s' not found or is not a nyx share directory", afl->fsrv.target_path);
+    }
+#endif
     if (stat(afl->fsrv.target_path, &st) || !S_ISREG(st.st_mode) ||
         !(st.st_mode & 0111) || (f_len = st.st_size) < 4) {
 
@@ -2721,6 +2750,9 @@ void check_binary(afl_state_t *afl, u8 *fname) {
 #endif                                                       /* ^!__APPLE__ */
 
   if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->unicorn_mode &&
+#ifdef NYX
+      !afl->fsrv.nyx_mode &&
+#endif
       !afl->fsrv.cs_mode && !afl->non_instrumented_mode &&
       !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
 

@@ -121,6 +121,17 @@ typedef struct afl_forkserver {
 
   u8 kill_signal;
 
+#ifdef NYX
+  char *out_dir_path;                   /* path to the output directory     */
+  u8 nyx_mode;                          /* if running in nyx mode or not    */
+  bool nyx_parent;                      /* create initial snapshot          */
+  bool nyx_standalone;                  /* don't serialize the snapshot     */
+  void* nyx_runner;                     /* nyx runner object                */
+  u32 nyx_id;                           /* nyx runner id (0 -> master)      */ 
+  u32 nyx_bind_cpu_id;                  /* nyx runner cpu id                */ 
+
+#endif
+
 } afl_forkserver_t;
 
 typedef enum fsrv_run_result {
