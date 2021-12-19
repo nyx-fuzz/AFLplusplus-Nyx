@@ -451,6 +451,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
       default:
         break;
     }
+    return;
   }
 #endif
 
