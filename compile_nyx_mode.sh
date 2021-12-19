@@ -9,7 +9,9 @@ if [ ! -d "packer" ]; then
     git checkout 9272fe10b123d1166acd29f6dd304dccaa3731a1
     cd linux_initramfs/
     sh pack.sh
-    cd ../../
+    cd ../packer/compiler/
+    make 
+    cd ../../../
     cp nyx_default.ini packer/packer/nyx.ini
 fi
 
