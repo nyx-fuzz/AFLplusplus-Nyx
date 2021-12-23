@@ -29,9 +29,9 @@ if [ ! -f "libnyx/libnyx//target/release/liblibnyx.a" ]; then
 fi
 
 echo "[?] Checking QEMU-Nyx ..."
-if [ ! -f "qemu-nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
+if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
 	echo "[*] Setting up QEMU-Nyx ..."
-    if [ ! -d "qemu-nyx" ]; then
+    if [ ! -d "QEMU-Nyx" ]; then
         git clone https://github.com/nyx-fuzz/QEMU-Nyx.git
     fi
     cd QEMU-Nyx/
