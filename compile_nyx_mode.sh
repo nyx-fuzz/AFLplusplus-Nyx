@@ -35,7 +35,7 @@ if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
         git clone https://github.com/nyx-fuzz/QEMU-Nyx.git
     fi
     cd QEMU-Nyx/
-    git checkout 18ad4753d35fedfc93d3b5b0d60ff773c200ee96
+    git checkout acc90e462b45fab15bb6b28c064e9f78808cb347
     ./compile_qemu_nyx.sh
     cd ..
 fi
